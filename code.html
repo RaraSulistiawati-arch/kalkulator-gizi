@@ -1,0 +1,693 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#f8f9ff">
+  <meta name="description" content="NutriRasa membantu mencatat makanan, kalori, makro, dan hidrasi harian.">
+  <title>NutriRasa — Gizi Harian</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      color-scheme: light;
+      --canvas: #f8f9ff;
+      --surface: #fff;
+      --surface-low: #eff4ff;
+      --surface-mid: #e5eeff;
+      --ink: #0b1c30;
+      --muted: #64748b;
+      --amber: #f59e0b;
+      --amber-dark: #855300;
+      --amber-soft: #ffddb8;
+      --carb: #d97706;
+      --protein: #e11d48;
+      --fat: #65a30d;
+      --line: #d8e1ef;
+      --shadow: 0 2px 8px -2px rgba(15, 23, 42, .05), 0 4px 16px -4px rgba(245, 158, 11, .08);
+      --float-shadow: 0 8px 24px -4px rgba(15, 23, 42, .12), 0 4px 12px -2px rgba(245, 158, 11, .18);
+      font-family: "Plus Jakarta Sans", system-ui, sans-serif;
+      font-synthesis: none;
+      font-optical-sizing: auto;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-width: 320px; background: var(--canvas); color: var(--ink); font-size: 14px; }
+    button, input, select { font: inherit; }
+    button { color: inherit; cursor: pointer; }
+    button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px solid rgba(245, 158, 11, .45); outline-offset: 2px; }
+    .app-header { position: sticky; top: 0; z-index: 10; background: rgba(248,249,255,.88); backdrop-filter: blur(18px); border-bottom: 1px solid rgba(216,225,239,.48); padding: max(env(safe-area-inset-top), 8px) 20px 0; }
+    .header-inner { width: min(1120px, 100%); margin: auto; height: 68px; display:flex; align-items:center; justify-content:space-between; }
+    .brand { display:flex; align-items:center; gap:10px; border:0; padding:0; background:transparent; text-align:left; }
+    .brand-mark { width:38px; height:38px; display:grid; place-items:center; background:var(--amber); border-radius:13px; color:#fff; font-size:21px; box-shadow:0 4px 10px rgba(245,158,11,.24); }
+    .brand-name { font-size:17px; font-weight:800; letter-spacing:-.04em; line-height:1.05; }
+    .brand-sub { display:block; margin-top:3px; color:var(--muted); font-size:10px; font-weight:700; letter-spacing:.04em; }
+    .header-actions { display:flex; gap:8px; align-items:center; }
+    .icon-btn { width:44px; height:44px; border:0; border-radius:50%; background:transparent; position:relative; font-size:20px; }
+    .icon-btn:hover { background:var(--surface-mid); }
+    .notif-dot { width:8px; height:8px; position:absolute; right:9px; top:9px; background:var(--amber); border:2px solid var(--canvas); border-radius:50%; }
+    .avatar { width:36px; height:36px; border-radius:50%; display:grid; place-items:center; background:#ffddb8; font-size:17px; border:2px solid white; box-shadow:0 0 0 1px var(--line); }
+    main { width:min(1120px,100%); margin:0 auto; padding:20px 20px 120px; }
+    .layout { display:grid; grid-template-columns:minmax(0, 1fr) 320px; gap:24px; align-items:start; }
+    .feed { min-width:0; display:flex; flex-direction:column; gap:20px; }
+    .sidebar { position:sticky; top:90px; display:flex; flex-direction:column; gap:18px; }
+    .date-row { display:flex; justify-content:space-between; align-items:center; gap:10px; }
+    .date-control { height:42px; display:flex; align-items:center; gap:8px; background:var(--surface-low); border-radius:999px; padding:4px 8px; }
+    .date-control button { width:34px; height:34px; border:0; background:transparent; border-radius:50%; font-size:18px; }
+    .date-control button:hover { background:var(--surface-mid); }
+    .date-label { font-size:12px; font-weight:700; white-space:nowrap; }
+    .streak { border-radius:99px; background:#ffedd5; color:#78350f; padding:8px 12px; font-size:11px; font-weight:700; white-space:nowrap; }
+    .card { background:var(--surface); border-radius:24px; padding:20px; box-shadow:var(--shadow); }
+    .summary-card { position:relative; overflow:hidden; }
+    .summary-card:before { content:""; position:absolute; width:180px; height:180px; border-radius:50%; right:-68px; top:-96px; background:rgba(245,158,11,.13); filter:blur(24px); }
+    .summary-top { position:relative; display:flex; align-items:center; gap:20px; }
+    .ring-wrap { position:relative; width:180px; height:180px; flex:none; display:grid; place-items:center; }
+    .ring { width:100%; height:100%; transform:rotate(-90deg); overflow:visible; }
+    .ring-track { fill:none; stroke:#ffedd5; stroke-width:9; }
+    .ring-value { fill:none; stroke:var(--amber); stroke-width:9; stroke-linecap:round; stroke-dasharray:282.74; stroke-dashoffset:282.74; transition:stroke-dashoffset .7s ease,stroke .3s; }
+    .ring-center { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; flex-direction:column; text-align:center; }
+    .ring-caption { color:#815521; font-size:10px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; }
+    .ring-number { margin:2px 0; font-size:32px; line-height:1.1; font-weight:800; letter-spacing:-.055em; font-variant-numeric:tabular-nums; }
+    .ring-unit { font-size:11px; color:var(--muted); }
+    .target-pill { margin-top:9px; padding:5px 10px; background:var(--surface-low); border-radius:99px; font-size:10px; font-weight:700; }
+    .summary-copy { flex:1; min-width:0; }
+    .summary-copy h1 { margin:0 0 6px; font-size:22px; letter-spacing:-.04em; }
+    .summary-copy p { margin:0; color:#566579; font-size:13px; line-height:1.65; }
+    .daily-line { display:flex; align-items:baseline; gap:5px; margin-top:15px; font-size:12px; color:#8a7a68; }
+    .daily-line strong { color:var(--ink); font-size:20px; font-variant-numeric:tabular-nums; letter-spacing:-.03em; }
+    .percent-pill { margin-left:auto; background:#ffddb8; color:#613b00; border-radius:99px; padding:5px 9px; font-size:10px; font-weight:800; white-space:nowrap; }
+    .macro-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; margin-top:18px; }
+    .macro-card { min-width:0; padding:10px; background:var(--surface-low); border-radius:14px; }
+    .macro-head { display:flex; align-items:center; justify-content:space-between; gap:4px; font-size:10px; font-weight:700; }
+    .macro-dot { width:8px; height:8px; border-radius:50%; flex:none; }
+    .macro-number { display:block; margin:6px 0 8px; font-weight:800; font-size:13px; font-variant-numeric:tabular-nums; white-space:nowrap; }
+    .macro-number small { color:var(--muted); font-weight:500; }
+    .progress { height:7px; overflow:hidden; border-radius:99px; background:#d6dfef; }
+    .progress > span { display:block; height:100%; width:0; border-radius:inherit; transition:width .5s; }
+    .meal-heading { display:flex; align-items:end; justify-content:space-between; margin:1px 0 -6px; }
+    .meal-heading h2,.section-title { margin:0; font-size:19px; font-weight:800; letter-spacing:-.04em; }
+    .meal-heading span { color:var(--muted); font-size:11px; }
+    .meal-list { display:flex; flex-direction:column; gap:14px; }
+    .meal-card { padding:16px; border-radius:18px; }
+    .meal-top { display:flex; justify-content:space-between; align-items:center; gap:10px; }
+    .meal-name-group { display:flex; align-items:center; gap:10px; min-width:0; }
+    .meal-icon { width:40px; height:40px; border-radius:50%; display:grid; place-items:center; background:#ffddb8; font-size:19px; flex:none; }
+    .meal-name { margin:0; font-size:14px; font-weight:800; }
+    .meal-target { color:var(--muted); font-size:10px; margin-top:2px; }
+    .meal-total { text-align:right; flex:none; }
+    .meal-kcal { font-size:14px; font-weight:800; font-variant-numeric:tabular-nums; }
+    .meal-status { font-size:10px; color:#9a5b00; font-weight:700; margin-top:2px; }
+    .items { display:flex; flex-direction:column; gap:7px; margin:13px 0 10px; }
+    .food-item { display:flex; align-items:center; justify-content:space-between; gap:10px; width:100%; min-height:48px; padding:9px 11px; border:0; border-radius:11px; background:var(--surface-low); text-align:left; }
+    .food-item:hover { background:var(--surface-mid); }
+    .food-info { min-width:0; }
+    .food-name { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:12px; font-weight:700; }
+    .food-meta { display:block; margin-top:3px; color:var(--muted); font-size:10px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .food-kcal { white-space:nowrap; font-size:12px; font-weight:800; }
+    .empty-meal { padding:14px 8px; text-align:center; color:var(--muted); font-size:12px; }
+    .add-meal { width:100%; min-height:44px; border:0; border-radius:10px; background:#e4edff; color:var(--ink); font-size:11px; font-weight:700; }
+    .add-meal:hover { background:#d8e5ff; }
+    .complete-meal { background:#ffedd5; }
+    .side-summary { text-align:center; }
+    .side-summary .ring-wrap { margin:0 auto 12px; }
+    .side-summary .macro-grid { grid-template-columns:1fr; }
+    .water-card { background:linear-gradient(115deg,#ffedd5,#e4edff); border-radius:18px; padding:16px; }
+    .water-top { display:flex; align-items:center; gap:12px; }
+    .water-icon { width:42px; height:42px; display:grid; place-items:center; border-radius:50%; background:#fff; font-size:20px; }
+    .water-title { font-size:13px; font-weight:800; }
+    .water-copy { color:#566579; font-size:10px; line-height:1.5; margin-top:3px; }
+    .water-controls { display:flex; gap:8px; margin-top:12px; }
+    .water-controls button { flex:1; min-height:40px; border:1px solid rgba(255,255,255,.75); background:rgba(255,255,255,.7); border-radius:12px; font-size:11px; font-weight:700; }
+    .water-controls button:hover { background:#fff; }
+    .tip-card { padding:16px; background:#fff; border-radius:18px; box-shadow:var(--shadow); }
+    .tip-title { font-size:12px; font-weight:800; margin-bottom:6px; }
+    .tip-text { color:var(--muted); font-size:11px; line-height:1.6; }
+    .quick-fab { position:fixed; right:max(24px,calc((100vw - 1080px)/2)); bottom:88px; z-index:8; min-height:52px; padding:0 20px; display:flex; align-items:center; gap:9px; border:0; border-radius:999px; background:var(--amber); color:#251900; box-shadow:var(--float-shadow); font-size:13px; font-weight:800; transition:transform .15s; }
+    .quick-fab:hover { transform:scale(1.04); }
+    .quick-fab:active,.primary-btn:active { transform:scale(.98); }
+    .bottom-nav { position:fixed; z-index:10; bottom:0; left:0; right:0; min-height:70px; padding:7px 12px max(env(safe-area-inset-bottom),7px); display:flex; justify-content:center; gap:clamp(8px,7vw,68px); background:rgba(248,249,255,.91); border-top:1px solid rgba(216,225,239,.55); backdrop-filter:blur(16px); }
+    .nav-btn { min-width:60px; min-height:50px; border:0; background:transparent; color:#6b7280; border-radius:14px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; font-size:10px; font-weight:700; }
+    .nav-btn .nav-icon { font-size:20px; line-height:1.15; }
+    .nav-btn.active { color:#613b00; background:#fff4de; }
+    .page-view { display:none; }
+    .page-view.active { display:block; }
+    .profile-panel,.coming-panel { background:#fff; border-radius:24px; box-shadow:var(--shadow); padding:22px; }
+    .profile-panel h1,.coming-panel h1 { margin:0 0 6px; font-size:23px; letter-spacing:-.04em; }
+    .subtext { color:var(--muted); font-size:12px; line-height:1.6; margin:0 0 20px; }
+    .form-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px; }
+    .field { display:flex; flex-direction:column; gap:6px; min-width:0; }
+    .field label { font-size:11px; font-weight:700; }
+    .field input,.field select,.search-input,.portion-input { height:44px; border:1px solid var(--line); border-radius:11px; padding:0 12px; background:#fff; color:var(--ink); min-width:0; }
+    .field input:focus,.field select:focus,.search-input:focus,.portion-input:focus { border-color:var(--amber); }
+    .primary-btn,.secondary-btn,.danger-btn { min-height:46px; border:0; border-radius:12px; padding:0 16px; font-weight:800; font-size:12px; }
+    .primary-btn { background:var(--amber); color:#251900; box-shadow:0 4px 16px rgba(245,158,11,.2); }
+    .secondary-btn { background:var(--surface-low); }
+    .danger-btn { background:#fff0f0; color:#a11b2e; }
+    .profile-actions { display:flex; flex-wrap:wrap; gap:8px; margin-top:16px; }
+    .target-result { margin-top:16px; padding:13px; background:var(--surface-low); border-radius:12px; font-size:12px; line-height:1.7; }
+    .coming-panel { text-align:center; padding:48px 24px; }
+    .coming-emoji { font-size:42px; margin-bottom:12px; }
+    .toast { position:fixed; left:50%; bottom:88px; transform:translate(-50%,15px); opacity:0; pointer-events:none; z-index:40; padding:12px 18px; background:#172b42; color:#fff; border-radius:999px; box-shadow:var(--float-shadow); font-size:12px; font-weight:700; transition:all .22s; max-width:calc(100vw - 32px); text-align:center; }
+    .toast.show { transform:translate(-50%,0); opacity:1; }
+    .backdrop { position:fixed; inset:0; z-index:30; display:none; align-items:flex-end; justify-content:center; background:rgba(11,28,48,.42); }
+    .backdrop.open { display:flex; }
+    .sheet { width:min(620px,100%); max-height:90dvh; overflow:auto; border-radius:24px 24px 0 0; background:var(--canvas); padding:10px 20px max(env(safe-area-inset-bottom),22px); box-shadow:0 -8px 32px rgba(15,23,42,.14); animation:rise .28s ease-out; }
+    @keyframes rise { from { transform:translateY(40px); opacity:.7; } to { transform:translateY(0); opacity:1; } }
+    .handle { width:38px; height:4px; border-radius:9px; background:#cbd5e1; margin:0 auto 14px; }
+    .sheet-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; }
+    .sheet-head h2 { margin:0; font-size:18px; letter-spacing:-.03em; }
+    .sheet-close { width:40px; height:40px; border:0; background:var(--surface-low); border-radius:50%; font-size:19px; }
+    .segmented { display:grid; grid-template-columns:repeat(4,1fr); gap:4px; padding:4px; background:#e5eaf3; border-radius:13px; margin-bottom:14px; }
+    .segment { min-height:38px; border:0; border-radius:10px; background:transparent; color:var(--muted); font-size:10px; font-weight:700; }
+    .segment.selected { color:var(--ink); background:#fff; box-shadow:0 1px 4px rgba(15,23,42,.1); }
+    .search-wrap { position:relative; }
+    .search-wrap:before { content:"⌕"; position:absolute; left:13px; top:8px; font-size:21px; color:var(--muted); }
+    .search-input { width:100%; padding-left:39px; background:#f1f5f9; }
+    .chips { display:flex; gap:7px; overflow:auto; padding:10px 0 12px; scrollbar-width:none; }
+    .chip { white-space:nowrap; border:1px solid var(--line); background:#fff; border-radius:99px; padding:7px 11px; font-size:10px; font-weight:700; color:#64748b; }
+    .chip.selected { border-color:var(--amber); background:#fef3c7; color:#9a5b00; }
+    .result-list { display:flex; flex-direction:column; gap:7px; max-height:190px; overflow:auto; }
+    .result-row { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:10px 12px; border:0; border-radius:12px; background:#fff; text-align:left; min-height:54px; }
+    .result-row:hover,.result-row.selected { background:#fff4de; }
+    .result-row strong { display:block; font-size:12px; }
+    .result-row small { color:var(--muted); font-size:10px; }
+    .favorite-btn { border:0; background:transparent; font-size:19px; padding:7px; }
+    .no-results { padding:14px; text-align:center; color:var(--muted); font-size:12px; }
+    .portion-row { display:grid; grid-template-columns:1fr auto; align-items:center; gap:12px; margin:15px 0; }
+    .portion-row label { font-weight:700; font-size:12px; }
+    .stepper { display:flex; align-items:center; gap:6px; }
+    .stepper button { height:40px; width:40px; border:0; border-radius:11px; background:#e4edff; font-size:20px; }
+    .portion-input { width:82px; text-align:center; padding:0 6px; font-weight:800; }
+    .portion-unit { color:var(--muted); font-size:11px; }
+    .unit-select { height:40px; max-width:116px; border:1px solid var(--line); border-radius:10px; background:#fff; padding:0 7px; color:var(--ink); font-size:10px; }
+    .preview { padding:13px; background:#eaf0ff; border-radius:15px; }
+    .preview-title { font-size:11px; font-weight:800; margin-bottom:9px; }
+    .preview-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:7px; }
+    .preview-cell { background:#fff; border-radius:10px; padding:9px 5px; text-align:center; }
+    .preview-cell strong { display:block; font-size:14px; font-variant-numeric:tabular-nums; }
+    .preview-cell small { color:var(--muted); font-size:9px; }
+    .source-note { color:var(--muted); font-size:10px; line-height:1.5; margin-top:8px; }
+    .sheet-actions { display:flex; gap:8px; margin-top:14px; }
+    .sheet-actions > button { flex:1; }
+    .custom-link { border:0; background:transparent; color:#855300; padding:12px 2px 0; font-size:11px; font-weight:700; text-decoration:underline; }
+    .consent-backdrop { align-items:center; padding:16px; }
+    .consent-card { width:min(440px,100%); padding:24px; border-radius:24px; background:#fff; box-shadow:0 24px 70px rgba(11,28,48,.22); }
+    .consent-card h1 { font-size:22px; margin:0 0 8px; letter-spacing:-.04em; }
+    .consent-card p { color:#566579; font-size:12px; line-height:1.7; }
+    .consent-check { display:flex; gap:10px; align-items:flex-start; margin:18px 0; font-size:11px; line-height:1.6; }
+    .consent-check input { width:18px; height:18px; accent-color:var(--amber-dark); flex:none; }
+    .custom-form { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:12px; }
+    .custom-form .wide { grid-column:1/-1; }
+    .legal-note { font-size:10px; color:var(--muted); line-height:1.5; margin-top:12px; }
+    .hidden { display:none !important; }
+    @media (max-width: 760px) {
+      .app-header { padding-left:16px; padding-right:16px; }
+      main { padding:12px 16px 120px; }
+      .layout { display:block; }
+      .sidebar { position:static; margin-top:16px; }
+      .side-summary { display:none; }
+      .feed { gap:16px; }
+      .card { padding:16px; }
+      .summary-top { flex-direction:column; gap:12px; text-align:center; }
+      .ring-wrap { width:164px; height:164px; }
+      .summary-copy h1 { font-size:19px; }
+      .summary-copy p { font-size:12px; }
+      .daily-line { justify-content:center; }
+      .macro-card { padding:9px 8px; }
+      .macro-number { font-size:12px; }
+      .quick-fab { right:16px; bottom:86px; }
+    }
+    @media (max-width:390px) {
+      main { padding-left:12px; padding-right:12px; }
+      .streak { padding:7px 9px; font-size:10px; }
+      .date-control { gap:2px; padding:3px 5px; }
+      .date-label { font-size:11px; }
+      .macro-grid { gap:5px; }
+      .macro-card { padding:8px 6px; }
+      .macro-head { font-size:9px; }
+      .macro-number { font-size:11px; }
+      .portion-input { width:64px; }
+      .unit-select { max-width:96px; }
+      .stepper { gap:4px; }
+    }
+    @media (max-width:360px) {
+      .sheet { padding-left:14px; padding-right:14px; }
+      .portion-row { grid-template-columns:1fr; gap:7px; }
+      .stepper { width:100%; min-width:0; }
+      .stepper > button { width:36px; flex:none; }
+      .portion-input { flex:0 0 58px; }
+      .unit-select { flex:1; min-width:0; max-width:none; }
+    }
+    @media (min-width: 761px) and (max-width: 1024px) {
+      main { padding:18px 24px 110px; }
+      .layout { grid-template-columns:minmax(0,1fr) 270px; gap:18px; }
+      .side-summary .macro-grid { grid-template-columns:1fr; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *,*::before,*::after { scroll-behavior:auto !important; animation-duration:.01ms !important; transition-duration:.01ms !important; }
+    }
+  </style>
+</head>
+<body>
+  <header class="app-header">
+    <div class="header-inner">
+      <button class="brand" type="button" aria-label="NutriRasa Harian" onclick="showPage('harian')">
+        <span class="brand-mark" aria-hidden="true">✚</span><span><span class="brand-name">NutriRasa</span><span class="brand-sub">HARIAN</span></span>
+      </button>
+      <div class="header-actions">
+        <button class="icon-btn" type="button" aria-label="Notifikasi" onclick="showToast('Belum ada notifikasi baru.')">♧<span class="notif-dot" aria-hidden="true"></span></button>
+        <button class="avatar" type="button" aria-label="Buka profil" onclick="showPage('profil')">👩🏻</button>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <section class="page-view active" id="page-harian">
+      <div class="layout">
+        <div class="feed">
+          <div class="date-row">
+            <div class="date-control" aria-label="Pilih tanggal">
+              <button type="button" aria-label="Hari sebelumnya" onclick="shiftDate(-1)">‹</button>
+              <span class="date-label" id="dateLabel"></span>
+              <button type="button" aria-label="Hari berikutnya" onclick="shiftDate(1)">›</button>
+            </div>
+            <span class="streak">🔥 Streak <span id="streakValue">5</span> Hari</span>
+          </div>
+          <section class="card summary-card" aria-label="Ringkasan nutrisi harian">
+            <div class="summary-top">
+              <div class="ring-wrap" role="img" id="calorieRing" aria-label="Progres kalori">
+                <svg class="ring" viewBox="0 0 120 120" aria-hidden="true"><circle class="ring-track" cx="60" cy="60" r="45"></circle><circle class="ring-value" id="ringStroke" cx="60" cy="60" r="45"></circle></svg>
+                <div class="ring-center"><span class="ring-caption" id="ringCaption">TERSISA</span><strong class="ring-number" id="ringNumber">0</strong><span class="ring-unit" id="ringUnit">kkal lagi</span><span class="target-pill" id="targetPill">Target 2.100</span></div>
+              </div>
+              <div class="summary-copy">
+                <h1>Ringkasan harian</h1>
+                <p id="dailyMessage">Setiap pilihan adalah langkah kecil menuju keseimbangan.</p>
+                <div class="daily-line"><strong id="consumedTotal">0</strong><span>/ <span id="targetTotal">2.100</span> kkal</span><span class="percent-pill" id="percentPill">0% Tercapai</span></div>
+              </div>
+            </div>
+            <div class="macro-grid" id="macroGrid"></div>
+          </section>
+          <div class="meal-heading"><h2>Jadwal Makan</h2><span id="mealCount">0 dari 4 terencana</span></div>
+          <div class="meal-list" id="mealList"></div>
+        </div>
+        <aside class="sidebar">
+          <section class="card side-summary">
+            <div class="ring-wrap" role="img" aria-label="Ringkasan kalori"><svg class="ring" viewBox="0 0 120 120" aria-hidden="true"><circle class="ring-track" cx="60" cy="60" r="45"></circle><circle class="ring-value side-ring-stroke" cx="60" cy="60" r="45"></circle></svg><div class="ring-center"><span class="ring-caption">KALORI TERSISA</span><strong class="ring-number side-ring-number">0</strong><span class="ring-unit">kkal</span></div></div>
+            <div class="tip-title">Target harian <span id="sideTarget">2.100</span> kkal</div>
+            <div class="tip-text" id="sideConsumed">Kamu sudah mencatat 0 kkal hari ini.</div>
+            <div class="macro-grid" id="sideMacroGrid"></div>
+          </section>
+          <section class="water-card" aria-label="Pelacak hidrasi">
+            <div class="water-top"><div class="water-icon" aria-hidden="true">♧</div><div><div class="water-title">Hidrasi Harian: <span id="waterLiters">0,0</span> L / <span id="waterTarget">2,5</span> L</div><div class="water-copy" id="waterCopy">Tambahkan air untuk mencatat hidrasi hari ini.</div></div></div>
+            <div class="water-controls"><button type="button" onclick="addWater(-250)" aria-label="Kurangi satu gelas">− 1 gelas</button><button type="button" onclick="addWater(250)">＋ Tambah 250 ml</button></div>
+          </section>
+          <section class="tip-card"><div class="tip-title">💡 Ingat dengan lembut</div><div class="tip-text">Kebutuhan setiap orang berbeda. Nikmati proses mengenal pola makanmu tanpa perlu mengejar angka yang sempurna.</div></section>
+        </aside>
+      </div>
+    </section>
+    <section class="page-view" id="page-resep"><div class="coming-panel"><div class="coming-emoji">🍲</div><h1>Resep & Menu</h1><p class="subtext">Inspirasi menu dan resep bergizi sedang kami siapkan.</p><button class="primary-btn" type="button" onclick="showToast('Kami catat minatmu. Terima kasih!')">Beri tahu saat tersedia</button></div></section>
+    <section class="page-view" id="page-analisis"><div class="coming-panel"><div class="coming-emoji">📊</div><h1>Analisis nutrisi</h1><p class="subtext">Ringkasan tren mingguan akan segera hadir. Terus catat makanan untuk melihat pola harianmu.</p><button class="secondary-btn" type="button" onclick="showPage('harian')">Kembali ke Harian</button></div></section>
+    <section class="page-view" id="page-profil">
+      <div class="profile-panel">
+        <h1>Profil & Target</h1><p class="subtext">Sesuaikan target berdasarkan data dirimu. Perhitungan ini adalah estimasi umum, bukan nasihat medis.</p>
+        <div class="form-grid">
+          <div class="field"><label for="profileName">Nama panggilan</label><input id="profileName" type="text" maxlength="40" value="Rina"></div>
+          <div class="field"><label for="profileSex">Jenis kelamin untuk rumus</label><select id="profileSex"><option value="female">Wanita</option><option value="male">Pria</option></select></div>
+          <div class="field"><label for="profileAge">Usia</label><input id="profileAge" type="number" min="18" max="100" value="27"></div>
+          <div class="field"><label for="profileHeight">Tinggi (cm)</label><input id="profileHeight" type="number" min="100" max="230" value="160"></div>
+          <div class="field"><label for="profileWeight">Berat (kg)</label><input id="profileWeight" type="number" min="30" max="300" step=".1" value="60"></div>
+          <div class="field"><label for="profileActivity">Aktivitas</label><select id="profileActivity"><option value="1.2">Minim gerak</option><option value="1.375">Ringan (1–3 hari/minggu)</option><option value="1.55" selected>Sedang (3–5 hari/minggu)</option><option value="1.725">Berat (6–7 hari/minggu)</option><option value="1.9">Sangat berat</option></select></div>
+          <div class="field"><label for="profileGoal">Tujuan</label><select id="profileGoal"><option value="lose">Turunkan berat badan</option><option value="maintain" selected>Jaga berat badan</option><option value="gain">Naikkan berat badan</option></select></div>
+          <div class="field"><label for="calorieTargetInput">Target kalori (kkal)</label><input id="calorieTargetInput" type="number" min="800" max="6000" step="50" value="2100"></div>
+          <div class="field"><label for="waterTargetInput">Target air (ml)</label><input id="waterTargetInput" type="number" min="500" max="6000" step="100" value="2500"></div>
+        </div>
+        <div class="target-result" id="targetResult">Target harian kamu: 2.100 kkal. Makro dihitung dengan distribusi 50% karbohidrat, 25% protein, dan 25% lemak.</div>
+        <div class="profile-actions"><button class="primary-btn" type="button" onclick="saveProfile()">Simpan profil & target</button><button class="secondary-btn" type="button" onclick="calculateProfileTarget()">Hitung rekomendasi</button><button class="secondary-btn" type="button" onclick="exportData()">Ekspor data</button><button class="danger-btn" type="button" onclick="clearData()">Hapus data lokal</button></div>
+        <p class="legal-note">NutriRasa bukan alat diagnosis atau pengganti konsultasi tenaga kesehatan. Data disimpan di browser perangkat ini. Target kalori minimal yang disarankan: 1.200 kkal (wanita) / 1.500 kkal (pria).</p>
+      </div>
+    </section>
+  </main>
+
+  <button class="quick-fab" type="button" onclick="openFoodSheet()"><span aria-hidden="true">＋</span> Catat Cepat</button>
+  <nav class="bottom-nav" aria-label="Navigasi utama">
+    <button class="nav-btn active" data-page="harian" onclick="showPage('harian')"><span class="nav-icon">▤</span>Harian</button>
+    <button class="nav-btn" data-page="resep" onclick="showPage('resep')"><span class="nav-icon">♨</span>Resep & Menu</button>
+    <button class="nav-btn" data-page="analisis" onclick="showPage('analisis')"><span class="nav-icon">◉</span>Analisis</button>
+    <button class="nav-btn" data-page="profil" onclick="showPage('profil')"><span class="nav-icon">♙</span>Profil</button>
+  </nav>
+
+  <div class="backdrop" id="foodBackdrop" role="presentation" onclick="backdropClose(event)">
+    <section class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
+      <div class="handle" aria-hidden="true"></div>
+      <div class="sheet-head"><h2 id="sheetTitle">Catat makanan</h2><button class="sheet-close" type="button" aria-label="Tutup" onclick="closeFoodSheet()">×</button></div>
+      <div class="segmented" id="mealSegments"></div>
+      <div class="search-wrap"><input id="foodSearch" class="search-input" type="search" placeholder="Cari nasi goreng, dada ayam, tempe..." autocomplete="off" aria-label="Cari makanan"></div>
+      <div class="chips" id="foodFilters"></div>
+      <div class="result-list" id="foodResults" aria-live="polite"></div>
+      <div class="portion-row"><label for="portionInput">Atur porsi</label><div class="stepper"><button type="button" aria-label="Kurangi porsi setara 25 gram" onclick="adjustPortion(-25)">−</button><input class="portion-input" id="portionInput" type="number" min="10" step="1" value="100" oninput="renderPreview()"><select class="unit-select" id="unitSelect" aria-label="Satuan porsi" onchange="changeUnit(this.value)"><option value="g">Gram (g)</option><option value="ml">Mililiter (ml)</option><option value="porsi">Porsi (~150 g)</option><option value="butir">Butir (~50 g)</option><option value="mangkuk">Mangkuk (~250 g)</option><option value="gelas">Gelas (~250 g)</option><option value="sdm">Sendok makan (~15 g)</option></select><button type="button" aria-label="Tambah porsi setara 25 gram" onclick="adjustPortion(25)">+</button></div></div>
+      <div class="preview"><div class="preview-title">Estimasi nutrisi</div><div class="preview-grid"><div class="preview-cell"><strong id="previewKcal">0</strong><small>kkal</small></div><div class="preview-cell"><strong id="previewCarb">0 g</strong><small>Karbo</small></div><div class="preview-cell"><strong id="previewProtein">0 g</strong><small>Protein</small></div><div class="preview-cell"><strong id="previewFat">0 g</strong><small>Lemak</small></div></div><div class="source-note" id="sourceNote">Pilih makanan untuk melihat estimasi. Nilai pangan merupakan perkiraan per 100 g, bukan data medis.</div></div>
+      <div class="sheet-actions"><button class="secondary-btn" id="deleteEntryBtn" type="button" onclick="deleteEditingEntry()" hidden>Hapus</button><button class="primary-btn" type="button" onclick="saveFoodEntry()">Simpan ke Menu Hari Ini</button></div>
+      <button class="custom-link" type="button" onclick="toggleCustomForm()">Tidak menemukan makanan? Buat makanan kustom</button>
+      <div class="custom-form hidden" id="customForm">
+        <div class="field wide"><label for="customName">Nama makanan</label><input id="customName" type="text" maxlength="60" placeholder="Contoh: Pepes tahu buatan rumah"></div>
+        <div class="field"><label for="customKcal">kkal / 100 g</label><input id="customKcal" type="number" min="0" max="900" step="1"></div>
+        <div class="field"><label for="customCarb">Karbo (g / 100 g)</label><input id="customCarb" type="number" min="0" max="100" step=".1"></div>
+        <div class="field"><label for="customProtein">Protein (g / 100 g)</label><input id="customProtein" type="number" min="0" max="100" step=".1"></div>
+        <div class="field"><label for="customFat">Lemak (g / 100 g)</label><input id="customFat" type="number" min="0" max="100" step=".1"></div>
+        <button class="secondary-btn wide" type="button" onclick="createCustomFood()">Simpan makanan kustom</button>
+      </div>
+    </section>
+  </div>
+  <div class="backdrop consent-backdrop" id="consentBackdrop">
+    <section class="consent-card" role="dialog" aria-modal="true" aria-labelledby="consentTitle">
+      <div class="brand-mark" aria-hidden="true" style="margin-bottom:14px">✚</div>
+      <h1 id="consentTitle">Selamat datang di NutriRasa</h1>
+      <p>Teman untuk mengenal pola makan harian dengan lebih sadar. Informasi gizi adalah estimasi umum dan aplikasi ini <strong>bukan nasihat medis</strong>, alat diagnosis, atau pengganti tenaga kesehatan.</p>
+      <p>Data yang kamu catat tersimpan lokal di browser perangkat ini. Hindari memakai aplikasi ini untuk kebutuhan diet terapeutik atau pengguna di bawah 18 tahun.</p>
+      <label class="consent-check"><input type="checkbox" id="consentCheck"><span>Saya memahami informasi di atas, menyetujui penggunaan lokal aplikasi, dan berusia minimal 18 tahun.</span></label>
+      <button class="primary-btn" style="width:100%" type="button" onclick="acceptConsent()">Lanjutkan ke NutriRasa</button>
+      <div class="legal-note">Prototipe lokal — tidak ada akun atau sinkronisasi ke server.</div>
+    </section>
+  </div>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <script>
+    "use strict";
+    const STORAGE_KEY = "nutrirasa.v1";
+    const unitFactors = {g:1,ml:1,porsi:150,butir:50,mangkuk:250,gelas:250,sdm:15};
+    const mealDefs = [
+      { id:"breakfast", name:"Sarapan", icon:"☀️", share:.25 },
+      { id:"lunch", name:"Makan Siang", icon:"🍲", share:.35 },
+      { id:"dinner", name:"Makan Malam", icon:"🌙", share:.30 },
+      { id:"snack", name:"Camilan", icon:"🍌", share:.10 }
+    ];
+    const foodCatalog = [
+      {id:"rice-white",name:"Nasi Putih",alias:"nasi rice",category:"Menu Warteg",kcal:130,carb:28.2,protein:2.7,fat:.3,source:"Estimasi komposisi pangan umum"},
+      {id:"rice-brown",name:"Nasi Merah",alias:"nasi merah",category:"Menu Warteg",kcal:123,carb:25.6,protein:2.7,fat:1,source:"Estimasi komposisi pangan umum"},
+      {id:"chicken",name:"Dada Ayam Panggang",alias:"ayam ayam goreng chicken fried chicken",category:"Tinggi Protein",kcal:165,carb:0,protein:31,fat:3.6,source:"Estimasi komposisi pangan umum"},
+      {id:"egg-boiled",name:"Telur Rebus",alias:"telur telur ayam egg",category:"Tinggi Protein",kcal:155,carb:1.1,protein:13,fat:11,source:"Estimasi komposisi pangan umum"},
+      {id:"tempe",name:"Tempe Goreng",alias:"tempe kedelai",category:"Menu Warteg",kcal:193,carb:9,protein:19,fat:11,source:"Estimasi komposisi pangan umum"},
+      {id:"tofu",name:"Tahu Kukus",alias:"tahu tofu",category:"Menu Warteg",kcal:76,carb:1.9,protein:8.1,fat:4.8,source:"Estimasi komposisi pangan umum"},
+      {id:"oatmeal",name:"Oatmeal",alias:"oat havermut",category:"Favorit",kcal:389,carb:66.3,protein:16.9,fat:6.9,source:"Estimasi komposisi pangan umum"},
+      {id:"banana",name:"Pisang",alias:"pisang ambon banana",category:"Favorit",kcal:89,carb:22.8,protein:1.1,fat:.3,source:"Estimasi komposisi pangan umum"},
+      {id:"veggies",name:"Tumis Buncis & Wortel",alias:"sayur tumis buncis wortel",category:"Menu Warteg",kcal:85,carb:8,protein:2,fat:4,source:"Estimasi resep; dapat bervariasi"},
+      {id:"fish-soup",name:"Sup Ikan Kuah Bening",alias:"ikan kakap sup seafood",category:"Tinggi Protein",kcal:100,carb:2.7,protein:17,fat:2.5,source:"Estimasi resep; dapat bervariasi"},
+      {id:"orange-juice",name:"Jus Jeruk Tanpa Gula",alias:"jeruk orange juice jus",category:"Minuman",kcal:45,carb:10.4,protein:.7,fat:.2,source:"Estimasi komposisi pangan umum"},
+      {id:"green-tea",name:"Teh Hijau Tanpa Gula",alias:"teh hijau minuman tea",category:"Minuman",kcal:1,carb:0,protein:0,fat:0,source:"Estimasi komposisi pangan umum"},
+      {id:"fried-rice",name:"Nasi Goreng",alias:"nasi goreng fried rice",category:"Menu Warteg",kcal:190,carb:26,protein:5,fat:7,source:"Estimasi resep; dapat bervariasi"},
+      {id:"avocado",name:"Alpukat",alias:"avocado",category:"Favorit",kcal:160,carb:8.5,protein:2,fat:14.7,source:"Estimasi komposisi pangan umum"}
+    ];
+    const mealSeed = [
+      [{foodId:"oatmeal",name:"Oatmeal",portion:40},{foodId:"banana",name:"Pisang",portion:100},{foodId:"egg-boiled",name:"Telur Rebus",portion:50},{foodId:"green-tea",name:"Teh Hijau Tanpa Gula",portion:250,unit:"ml"}],
+      [{foodId:"rice-brown",name:"Nasi Merah Pulen",portion:150},{foodId:"chicken",name:"Dada Ayam Panggang",portion:120},{foodId:"veggies",name:"Tumis Buncis & Wortel",portion:100},{foodId:"orange-juice",name:"Jus Jeruk Tanpa Gula",portion:200,unit:"ml"}],
+      [{foodId:"fish-soup",name:"Sup Ikan Kuah Bening",portion:220},{foodId:"tofu",name:"Tahu Kukus Daun Bawang",portion:100}]
+    ];
+    const localToday = new Date();
+    const isoToday = toISODate(localToday);
+    let state = loadState();
+    let selectedDate = isoToday;
+    let selectedMeal = "breakfast";
+    let selectedFood = null;
+    let editingEntryId = null;
+    let editingOriginalMeal = null;
+    let currentUnit = "g";
+    let activeFilter = "Semua";
+    let searchTimer = null;
+
+    function toISODate(date) {
+      const local = new Date(date.getTime() - date.getTimezoneOffset()*60000);
+      return local.toISOString().slice(0,10);
+    }
+    function initialState() {
+      const demoMeals = {};
+      mealDefs.forEach((meal,i) => { demoMeals[meal.id] = i < 3 ? mealSeed[i].map((item,n) => ({...item,id:`demo-${i}-${n}`,favorite:false})) : []; });
+      return { consent:false, profile:{name:"Rina",sex:"female",age:27,height:160,weight:60,activity:1.55,goal:"maintain",calories:2100,waterTarget:2500}, days:{[isoToday]:{meals:demoMeals,water:1800}}, customFoods:[], favorites:[], streak:5 };
+    }
+    function loadState() {
+      try {
+        const saved = localStorage.getItem(STORAGE_KEY);
+        if (!saved) return initialState();
+        const parsed = JSON.parse(saved);
+        const defaults = initialState();
+        return {...defaults,...parsed,profile:{...defaults.profile,...parsed.profile},days:parsed.days || defaults.days,customFoods:Array.isArray(parsed.customFoods)?parsed.customFoods:[],favorites:Array.isArray(parsed.favorites)?parsed.favorites:[]};
+      } catch (error) {
+        console.error("Data NutriRasa tidak dapat dibaca dari penyimpanan lokal.", error);
+        return initialState();
+      }
+    }
+    function persist() {
+      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
+      catch (error) { console.error("Data NutriRasa gagal disimpan.", error); showToast("Penyimpanan browser penuh. Ekspor data atau hapus sebagian data."); }
+    }
+    function dayData(date=selectedDate) {
+      if (!state.days[date]) state.days[date] = {meals:{breakfast:[],lunch:[],dinner:[],snack:[]},water:0};
+      if (!state.days[date].meals) state.days[date].meals = {};
+      mealDefs.forEach(m => { if (!Array.isArray(state.days[date].meals[m.id])) state.days[date].meals[m.id]=[]; });
+      if (!Number.isFinite(state.days[date].water)) state.days[date].water=0;
+      return state.days[date];
+    }
+    function formatNum(value,digits=0) { return new Intl.NumberFormat("id-ID",{maximumFractionDigits:digits,minimumFractionDigits:digits}).format(value); }
+    function safeText(value) { return String(value).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+    function foodFor(entry) {
+      return [...foodCatalog,...state.customFoods].find(food=>food.id===entry.foodId) || entry.foodData || {name:entry.name,kcal:0,carb:0,protein:0,fat:0,source:"Data tidak tersedia"};
+    }
+    function nutrition(entry) {
+      const food=foodFor(entry), scale=((Number(entry.portion)||0)*(Number(entry.unitFactor)||unitFactors[entry.unit]||1))/100;
+      return {kcal:food.kcal*scale,carb:food.carb*scale,protein:food.protein*scale,fat:food.fat*scale};
+    }
+    function totals() {
+      const totals={kcal:0,carb:0,protein:0,fat:0};
+      mealDefs.forEach(meal=>dayData().meals[meal.id].forEach(entry=>{const n=nutrition(entry);Object.keys(totals).forEach(k=>totals[k]+=n[k]);}));
+      return totals;
+    }
+    function getTargets() {
+      const c=Number(state.profile.calories)||2100;
+      return {calories:c,carb:c*.5/4,protein:c*.25/4,fat:c*.25/9};
+    }
+    function renderDate() {
+      const d=new Date(`${selectedDate}T12:00:00`);
+      const today=selectedDate===isoToday;
+      document.getElementById("dateLabel").textContent=today?`Hari Ini, ${new Intl.DateTimeFormat("id-ID",{day:"numeric",month:"short"}).format(d)}`:new Intl.DateTimeFormat("id-ID",{weekday:"short",day:"numeric",month:"short"}).format(d);
+    }
+    function renderSummary() {
+      const t=totals(), targets=getTargets(), remaining=targets.calories-t.kcal, percentage=Math.round(t.kcal/targets.calories*100), progress=Math.min(1,t.kcal/targets.calories);
+      document.getElementById("ringCaption").textContent=remaining>=0?"TERSISA":"MELEBIHI";
+      document.getElementById("ringNumber").textContent=formatNum(Math.abs(Math.round(remaining)));
+      document.getElementById("ringUnit").textContent=remaining>=0?"kkal lagi":"kkal";
+      document.getElementById("targetPill").textContent=`Target ${formatNum(targets.calories)}`;
+      document.getElementById("consumedTotal").textContent=formatNum(Math.round(t.kcal));
+      document.getElementById("targetTotal").textContent=formatNum(targets.calories);
+      document.getElementById("percentPill").textContent=`${percentage}% Tercapai`;
+      document.getElementById("ringStroke").style.strokeDashoffset=String(282.74*(1-progress));
+      document.getElementById("ringStroke").style.stroke=remaining<0?"#65a30d":"#f59e0b";
+      document.getElementById("calorieRing").setAttribute("aria-label",`${formatNum(Math.round(t.kcal))} dari ${formatNum(targets.calories)} kkal; ${remaining>=0?`tersisa ${formatNum(Math.round(remaining))}`:`melebihi ${formatNum(Math.abs(Math.round(remaining)))}`} kkal`);
+      const message=remaining<0?"Kebutuhan hari ini sudah terlampaui. Dengarkan tubuhmu dan lanjutkan dengan nyaman.":percentage>=80?"Kamu sudah dekat dengan target hari ini. Pilih yang membuatmu merasa nyaman.":"Pilihan nutrisi seimbang! Masih ada ruang untuk menikmati makanan berikutnya.";
+      document.getElementById("dailyMessage").textContent=message;
+      const macros=[["Karbo",t.carb,targets.carb,"#d97706"],["Protein",t.protein,targets.protein,"#e11d48"],["Lemak",t.fat,targets.fat,"#65a30d"]];
+      const html=macros.map(([name,value,target,color])=>`<div class="macro-card"><div class="macro-head"><span>${name}</span><span class="macro-dot" style="background:${color}"></span></div><strong class="macro-number">${formatNum(Math.round(value))}<small> / ${formatNum(Math.round(target))}g</small></strong><div class="progress"><span style="width:${Math.min(100,value/target*100)}%;background:${color}"></span></div></div>`).join("");
+      document.getElementById("macroGrid").innerHTML=html;
+      document.getElementById("sideMacroGrid").innerHTML=html;
+      document.querySelector(".side-ring-stroke").style.strokeDashoffset=String(282.74*(1-progress));
+      document.querySelector(".side-ring-number").textContent=formatNum(Math.max(0,Math.round(remaining)));
+      document.getElementById("sideTarget").textContent=formatNum(targets.calories);
+      document.getElementById("sideConsumed").textContent=`Kamu sudah mencatat ${formatNum(Math.round(t.kcal))} kkal hari ini.`;
+    }
+    function renderMeals() {
+      const container=document.getElementById("mealList");
+      let planned=0;
+      container.innerHTML=mealDefs.map(meal=>{
+        const entries=dayData().meals[meal.id], sum=entries.reduce((acc,item)=>acc+nutrition(item).kcal,0), target=getTargets().calories*meal.share;
+        if(entries.length) planned++;
+        const items=entries.length?entries.map(entry=>{
+          const n=nutrition(entry), portion=entry.unit?`${formatNum(entry.portion)} ${entry.unit}`:`${formatNum(entry.portion)} g`;
+          return `<button class="food-item" type="button" aria-label="Edit ${safeText(entry.name)}" onclick="editEntry('${safeText(meal.id)}','${safeText(entry.id)}')"><span class="food-info"><span class="food-name">${safeText(entry.name)}</span><span class="food-meta">${portion} · K:${formatNum(n.carb,1)}g · P:${formatNum(n.protein,1)}g · L:${formatNum(n.fat,1)}g</span></span><span class="food-kcal">${formatNum(Math.round(n.kcal))} kkal</span></button>`;
+        }).join(""):`<div class="empty-meal">Belum ada catatan. Tambahkan makanan saat kamu siap.</div>`;
+        const complete=sum>=target*.6;
+        return `<article class="card meal-card"><div class="meal-top"><div class="meal-name-group"><div class="meal-icon" aria-hidden="true">${meal.icon}</div><div><h3 class="meal-name">${meal.name}</h3><div class="meal-target">Target ~${formatNum(Math.round(target))} kkal</div></div></div><div class="meal-total"><div class="meal-kcal">${formatNum(Math.round(sum))} kkal</div><div class="meal-status">${entries.length?(complete?"Selesai Dicatat":"Belum Lengkap"):"Belum dicatat"}</div></div></div><div class="items">${items}</div><button class="add-meal ${entries.length&&!complete?"complete-meal":""}" type="button" onclick="openFoodSheet('${meal.id}')">${entries.length&&!complete?`⊕ Lengkapi ${meal.name} (+${formatNum(Math.max(0,Math.round(target-sum)))} kkal)`:`⊕ Tambah Item ${meal.name}`}</button></article>`;
+      }).join("");
+      document.getElementById("mealCount").textContent=`${planned} dari 4 terencana`;
+    }
+    function renderWater() {
+      const water=dayData().water, goal=Number(state.profile.waterTarget)||2500, remaining=Math.max(0,goal-water);
+      document.getElementById("waterLiters").textContent=formatNum(water/1000,1);
+      document.getElementById("waterTarget").textContent=formatNum(goal/1000,1);
+      document.getElementById("waterCopy").textContent=remaining?`Tinggal ${Math.ceil(remaining/250)} gelas lagi untuk mencapai target minummu.`:"Target hidrasi harian tercapai. Terima kasih sudah merawat diri!";
+    }
+    function renderAll() { renderDate();renderSummary();renderMeals();renderWater();persist(); }
+    function shiftDate(delta) { const date=new Date(`${selectedDate}T12:00:00`);date.setDate(date.getDate()+delta);if(toISODate(date)>isoToday){showToast("Tanggal mendatang hanya tersedia untuk perencanaan.");return;}selectedDate=toISODate(date);renderAll(); }
+    function addWater(amount) { const day=dayData();day.water=Math.max(0,day.water+amount);renderWater();persist();showToast(amount>0?"Air minum dicatat.":"Catatan air diperbarui."); }
+    function showPage(page) {
+      document.querySelectorAll(".page-view").forEach(section=>section.classList.toggle("active",section.id===`page-${page}`));
+      document.querySelectorAll(".nav-btn").forEach(button=>button.classList.toggle("active",button.dataset.page===page));
+      if(page==="profil") fillProfile();
+      window.scrollTo({top:0,behavior:"smooth"});
+    }
+    function showToast(message) {
+      const toast=document.getElementById("toast");toast.textContent=message;toast.classList.add("show");
+      clearTimeout(showToast.timer);showToast.timer=setTimeout(()=>toast.classList.remove("show"),2500);
+    }
+    function openFoodSheet(mealId="") {
+      selectedMeal=mealId||mealForCurrentTime();selectedFood=null;editingEntryId=null;editingOriginalMeal=null;activeFilter="Semua";
+      currentUnit="g";document.getElementById("unitSelect").value="g";
+      document.getElementById("sheetTitle").textContent="Catat makanan";
+      document.getElementById("foodSearch").value="";
+      document.getElementById("portionInput").value="100";
+      document.getElementById("portionInput").min="10";
+      document.getElementById("deleteEntryBtn").hidden=true;
+      document.getElementById("customForm").classList.add("hidden");
+      document.getElementById("foodBackdrop").classList.add("open");
+      renderSegments();renderFilters();renderFoodResults();renderPreview();
+      setTimeout(()=>document.getElementById("foodSearch").focus(),100);
+    }
+    function mealForCurrentTime() {
+      const hour=new Date().getHours();
+      return hour<10?"breakfast":hour<15?"lunch":hour<20?"dinner":"snack";
+    }
+    function renderSegments() {
+      document.getElementById("mealSegments").innerHTML=mealDefs.map(meal=>`<button class="segment ${selectedMeal===meal.id?"selected":""}" type="button" onclick="selectMeal('${meal.id}')">${meal.name==="Makan Siang"?"Siang":meal.name==="Makan Malam"?"Malam":meal.name}</button>`).join("");
+    }
+    function selectMeal(meal) { selectedMeal=meal;renderSegments(); }
+    function renderFilters() {
+      const labels=["Semua","Favorit","Terakhir","Tinggi Protein","Menu Warteg","Minuman"];
+      document.getElementById("foodFilters").innerHTML=labels.map(label=>`<button class="chip ${activeFilter===label?"selected":""}" type="button" onclick="setFilter('${label}')">${label}</button>`).join("");
+    }
+    function setFilter(filter) { activeFilter=filter;renderFilters();renderFoodResults(); }
+    function normalizeSearch(text) {
+      return text.toLocaleLowerCase("id").normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/goreng|fried/g,"goreng").replace(/ayam|chicken/g,"ayam").replace(/[^a-z0-9 ]/g," ").trim();
+    }
+    function renderFoodResults() {
+      const query=normalizeSearch(document.getElementById("foodSearch").value);
+      const all=[...foodCatalog,...state.customFoods];
+      let list=all;
+      if(activeFilter==="Favorit")list=all.filter(food=>state.favorites.includes(food.id));
+      else if(activeFilter==="Terakhir") {
+        const ids=[];mealDefs.forEach(m=>dayData().meals[m.id].slice().reverse().forEach(e=>{if(!ids.includes(e.foodId))ids.push(e.foodId);}));
+        list=ids.map(id=>all.find(food=>food.id===id)).filter(Boolean);
+      } else if(activeFilter!=="Semua")list=all.filter(food=>food.category===activeFilter);
+      if(query)list=list.filter(food=>normalizeSearch(`${food.name} ${food.alias||""}`).includes(query)||query.split(" ").every(word=>normalizeSearch(`${food.name} ${food.alias||""}`).includes(word)));
+      const host=document.getElementById("foodResults");
+      if(!list.length) {host.innerHTML=`<div class="no-results">${activeFilter==="Favorit"?"Belum ada makanan favorit.":`Tidak ada hasil untuk “${safeText(document.getElementById("foodSearch").value)}”.`}<br>Gunakan pilihan makanan kustom di bawah.</div>`;return;}
+      host.innerHTML=list.slice(0,30).map(food=>`<div class="result-row ${selectedFood?.id===food.id?"selected":""}"><button type="button" style="border:0;background:transparent;text-align:left;flex:1;padding:0" onclick="selectFood('${safeText(food.id)}')"><strong>${safeText(food.name)}</strong><small>${formatNum(food.kcal)} kkal · ${safeText(food.source||"Makanan kustom")} / 100 g</small></button><button class="favorite-btn" type="button" aria-label="${state.favorites.includes(food.id)?"Hapus dari":"Tambah ke"} favorit" onclick="toggleFavorite('${safeText(food.id)}')">${state.favorites.includes(food.id)?"★":"☆"}</button></div>`).join("");
+    }
+    function selectFood(id) {
+      selectedFood=[...foodCatalog,...state.customFoods].find(food=>food.id===id)||null;
+      currentUnit="g";document.getElementById("unitSelect").value="g";
+      document.getElementById("portionInput").value="100";
+      document.getElementById("portionInput").min="10";
+      renderFoodResults();renderPreview();
+    }
+    function toggleFavorite(id) {
+      state.favorites=state.favorites.includes(id)?state.favorites.filter(value=>value!==id):[...state.favorites,id];
+      persist();renderFoodResults();showToast(state.favorites.includes(id)?"Ditambahkan ke favorit.":"Dihapus dari favorit.");
+    }
+    function adjustPortion(delta) {
+      const input=document.getElementById("portionInput"),factor=unitFactors[currentUnit]||1;
+      input.value=Math.max(10/factor,(Number(input.value)||10/factor)+delta/factor).toFixed(factor===1?0:1);renderPreview();
+    }
+    function changeUnit(unit) {
+      const next=unitFactors[unit]?unit:"g",input=document.getElementById("portionInput"),grams=(Number(input.value)||0)*(unitFactors[currentUnit]||1);
+      currentUnit=next;input.value=(grams/unitFactors[next]).toFixed(unitFactors[next]===1?0:1);input.min=(10/unitFactors[next]).toFixed(1);renderPreview();
+    }
+    function renderPreview() {
+      const food=selectedFood, portion=Math.max(0,Number(document.getElementById("portionInput").value)||0), factor=portion*(unitFactors[currentUnit]||1)/100;
+      document.getElementById("previewKcal").textContent=food?formatNum(Math.round(food.kcal*factor)):"—";
+      document.getElementById("previewCarb").textContent=food?`${formatNum(food.carb*factor,1)} g`:"—";
+      document.getElementById("previewProtein").textContent=food?`${formatNum(food.protein*factor,1)} g`:"—";
+      document.getElementById("previewFat").textContent=food?`${formatNum(food.fat*factor,1)} g`:"—";
+      document.getElementById("sourceNote").textContent=food?`${food.source||"Makanan kustom"} · estimasi nilai per 100 g. Kandungan aktual dapat berbeda menurut resep dan porsi.`:"Pilih makanan untuk melihat estimasi. Nilai pangan merupakan perkiraan per 100 g, bukan data medis.";
+    }
+    function saveFoodEntry() {
+      if(!selectedFood){showToast("Pilih makanan terlebih dahulu.");return;}
+      const portion=Number(document.getElementById("portionInput").value);
+      const grams=portion*(unitFactors[currentUnit]||1);
+      if(!Number.isFinite(portion)||grams<10){showToast("Porsi minimum adalah 10 gram atau setara.");return;}
+      const day=dayData(), meal=day.meals[selectedMeal];
+      const originalMeal=editingOriginalMeal?day.meals[editingOriginalMeal]:meal;
+      const originalIndex=editingEntryId?originalMeal.findIndex(entry=>entry.id===editingEntryId):-1;
+      const existing=originalIndex>=0?originalMeal[originalIndex]:null;
+      const entry={id:editingEntryId||`entry-${Date.now()}-${Math.random().toString(36).slice(2,7)}`,foodId:selectedFood.id,name:selectedFood.name,portion,unit:currentUnit==="g"?"":currentUnit,unitFactor:unitFactors[currentUnit]};
+      if(existing) {
+        Object.assign(existing,entry);
+        if(editingOriginalMeal!==selectedMeal) { originalMeal.splice(originalIndex,1);meal.push(existing); }
+      } else meal.push(entry);
+      if(selectedFood.category==="Minuman"&&selectedFood.kcal<=2)day.water+=Math.round(portion);
+      closeFoodSheet();renderAll();showToast(existing?"Catatan makanan diperbarui.":"Makanan ditambahkan ke menu hari ini.");
+    }
+    function closeFoodSheet() { document.getElementById("foodBackdrop").classList.remove("open"); }
+    function backdropClose(event) { if(event.target===document.getElementById("foodBackdrop"))closeFoodSheet(); }
+    function editEntry(mealId,id) {
+      const entry=dayData().meals[mealId].find(item=>item.id===id);if(!entry)return;
+      openFoodSheet(mealId);editingEntryId=id;
+      editingOriginalMeal=mealId;
+      selectedFood=[...foodCatalog,...state.customFoods].find(food=>food.id===entry.foodId)||entry.foodData||null;
+      document.getElementById("sheetTitle").textContent="Edit catatan makanan";
+      document.getElementById("portionInput").value=entry.portion;
+      currentUnit=unitFactors[entry.unit]?entry.unit:"g";document.getElementById("unitSelect").value=currentUnit;
+      document.getElementById("portionInput").min=(10/unitFactors[currentUnit]).toFixed(1);
+      document.getElementById("deleteEntryBtn").hidden=false;
+      renderFoodResults();renderPreview();
+    }
+    function deleteEditingEntry() {
+      if(!editingEntryId)return;
+      const entries=dayData().meals[editingOriginalMeal||selectedMeal],index=entries.findIndex(entry=>entry.id===editingEntryId);
+      if(index>=0)entries.splice(index,1);
+      closeFoodSheet();renderAll();showToast("Catatan makanan dihapus.");
+    }
+    function toggleCustomForm() { document.getElementById("customForm").classList.toggle("hidden"); }
+    function createCustomFood() {
+      const name=document.getElementById("customName").value.trim();
+      const kcal=Number(document.getElementById("customKcal").value),carb=Number(document.getElementById("customCarb").value),protein=Number(document.getElementById("customProtein").value),fat=Number(document.getElementById("customFat").value);
+      if(!name||![kcal,carb,protein,fat].every(Number.isFinite)||[kcal,carb,protein,fat].some(value=>value<0)||kcal>900||carb>100||protein>100||fat>100){showToast("Lengkapi nama dan nilai nutrisi yang valid per 100 g.");return;}
+      const food={id:`custom-${Date.now()}`,name,alias:name,category:"Kustom",kcal,carb,protein,fat,source:"Makanan kustom — data dari pengguna"};
+      state.customFoods.push(food);persist();selectedFood=food;document.getElementById("foodSearch").value=name;document.getElementById("customForm").classList.add("hidden");renderFoodResults();renderPreview();showToast("Makanan kustom tersimpan di perangkat ini.");
+    }
+    function fillProfile() {
+      const p=state.profile;
+      [["profileName","name"],["profileSex","sex"],["profileAge","age"],["profileHeight","height"],["profileWeight","weight"],["profileActivity","activity"],["profileGoal","goal"],["calorieTargetInput","calories"],["waterTargetInput","waterTarget"]].forEach(([id,key])=>{const input=document.getElementById(id);if(input)input.value=p[key];});
+      updateTargetResult();
+    }
+    function calculateProfileTarget() {
+      const age=Number(document.getElementById("profileAge").value),height=Number(document.getElementById("profileHeight").value),weight=Number(document.getElementById("profileWeight").value),sex=document.getElementById("profileSex").value,activity=Number(document.getElementById("profileActivity").value),goal=document.getElementById("profileGoal").value;
+      if(age<18||age>100||height<100||height>230||weight<30||weight>300){showToast("Periksa kembali data usia, tinggi, dan berat badan.");return;}
+      const bmr=10*weight+6.25*height-5*age+(sex==="male"?5:-161),tdee=bmr*activity;
+      let suggested=tdee+(goal==="lose"?-500:goal==="gain"?400:0);
+      const floor=sex==="male"?1500:1200;
+      if(suggested<floor){suggested=floor;showToast(`Rekomendasi disesuaikan ke batas minimum ${formatNum(floor)} kkal.`);}
+      document.getElementById("calorieTargetInput").value=Math.round(suggested/50)*50;
+      updateTargetResult();
+    }
+    function updateTargetResult() {
+      const calories=Number(document.getElementById("calorieTargetInput").value)||2100;
+      document.getElementById("targetResult").textContent=`Target harian: ${formatNum(calories)} kkal. Perkiraan makro: karbo ${formatNum(calories*.5/4)} g, protein ${formatNum(calories*.25/4)} g, lemak ${formatNum(calories*.25/9)} g.`;
+    }
+    function saveProfile() {
+      const calories=Number(document.getElementById("calorieTargetInput").value),waterTarget=Number(document.getElementById("waterTargetInput").value);
+      if(calories<800||calories>6000||waterTarget<500||waterTarget>6000){showToast("Target di luar rentang yang didukung. Periksa kembali nilainya.");return;}
+      const min= document.getElementById("profileSex").value==="male"?1500:1200;
+      if(calories<min&&!confirm(`Target ${formatNum(calories)} kkal berada di bawah batas pengaman ${formatNum(min)} kkal. Lanjutkan hanya jika diarahkan tenaga kesehatan.`))return;
+      state.profile={name:document.getElementById("profileName").value.trim()||"Teman",sex:document.getElementById("profileSex").value,age:Number(document.getElementById("profileAge").value),height:Number(document.getElementById("profileHeight").value),weight:Number(document.getElementById("profileWeight").value),activity:Number(document.getElementById("profileActivity").value),goal:document.getElementById("profileGoal").value,calories,waterTarget};
+      persist();updateTargetResult();renderAll();showToast("Profil dan target berhasil disimpan.");
+    }
+    function exportData() {
+      const data={...state,exportedAt:new Date().toISOString()};
+      const blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"}),url=URL.createObjectURL(blob),a=document.createElement("a");
+      a.href=url;a.download=`nutrirasa-${isoToday}.json`;a.click();URL.revokeObjectURL(url);showToast("Ekspor data berhasil dibuat.");
+    }
+    function clearData() {
+      if(!confirm("Hapus semua data NutriRasa yang tersimpan di browser ini? Tindakan ini tidak dapat dibatalkan."))return;
+      localStorage.removeItem(STORAGE_KEY);
+      state={consent:true,profile:{name:"Teman",sex:"female",age:27,height:160,weight:60,activity:1.55,goal:"maintain",calories:2100,waterTarget:2500},days:{[isoToday]:{meals:{breakfast:[],lunch:[],dinner:[],snack:[]},water:0}},customFoods:[],favorites:[],streak:0};
+      selectedDate=isoToday;persist();fillProfile();renderAll();showToast("Semua data lokal berhasil dihapus.");
+    }
+    function acceptConsent() {
+      if(!document.getElementById("consentCheck").checked){showToast("Mohon setujui pernyataan sebelum melanjutkan.");return;}
+      state.consent=true;persist();document.getElementById("consentBackdrop").classList.remove("open");
+    }
+    document.getElementById("foodSearch").addEventListener("input",()=>{clearTimeout(searchTimer);searchTimer=setTimeout(renderFoodResults,120);});
+    document.getElementById("calorieTargetInput").addEventListener("input",updateTargetResult);
+    document.addEventListener("keydown",event=>{if(event.key==="Escape"){closeFoodSheet();}});
+    renderAll();fillProfile();
+    if(!state.consent)document.getElementById("consentBackdrop").classList.add("open");
+  </script>
+</body>
+</html>
